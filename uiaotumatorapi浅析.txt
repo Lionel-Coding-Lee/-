@@ -1,0 +1,68 @@
+从android sdk api 16开始，Android SDK开始支持两个做功能UI测试的新工具。
+uiautomatorviewer,一个用以扫描以及分析Android应用程序的UI部件的工具。
+以及uiautomator ，一个提供API用以自定义UI测试的Java库。
+要应用上面两个工具，除了需要android sdk api 16以上的前提条件外，还要求Android SDK Tools为21版以上。
+UiAutomator主要涉及一下几个类，大多数位于源码包的com.android.uiautomator.core下，其中粗体字部分为主要会接触到的类，熟知这5个类的作用，就可以大体顺畅的写出UiAutomator的测试用例。
+UiAutomatorTestCase
+UiDevice
+UiSelector
+UiScrollable
+UiObject
+UiCollection
+UiTestAutomationBridge, UiAutomatorBridge
+InteractionController, QueryController
+UiWatcher
+UiAutomatorTestCase
+TestCase （Junit） -> UiAutomatorTestCase  -> App Test
+每个测试用例都需要继承UiAutomatorTestCase，以实现测试环境的setup,teardown等同能。而UiAutomatorTestCase则是通过继承Junit3中的TestCase类，并在其中的setUp() 、tearDown() 、getParams() 函数中。其中主要是用Bundle实现Android Activity之间的通讯。在UiAutomatorTestCase，还加入了getUiDevice()等关于UiDevice的 函数，以实现在测试的任意地方均可调用UiDevice()。
+UiDevice
+此类主要包含了获取设备状态信息，和模拟用户至于设备的操作两类api。
+可以通过getDisplaySizeDp(), getDisplayWidth() , getDisplayHeight() ,getProductName() ,getCurrentActivityName(), getCurrentPackageName() 等获取设备相关信息。
+pressMenu(), pressBack(), pressHome(), pressSearch() ,pressDPadCenter(), pressDPadRight(), pressDPadLeft(), pressDPadUp(), pressDPadDown() ,pressDelete(), pressEnter(), pressKeyCode(), pressRecentApps(),click(),swipe(),getDisplayRotation() setOrientationLeft()… wakeUp(), sleep() ,dumpWindowHierarchy(), waitForWindowUpdate()等API可以灵活的操纵设备。
+而takeScreenshot() 允许随时对设备截屏。
+UiSelector
+主要是通过一定查询方式，定位到所要操作的UI元素。
+一般UI元素均可通过以下API定位：text(), textMatches(String regex), textStartsWith(), textContains() ,className() ,classNameMatches(String regex), className(Class type) ,Description(), descriptionMatches(String regex)，descriptionStartsWith()，descriptionContains() ,packageName(), packageNameMatches(String regex)。
+值得注意的是index()和 instance() 两个函数，其中index()是当前页面的ID编号，instance()则表示在一定都搜索结果下，获取的子元素集的第几个元素。如：
+new UiSelector().className("android.widget.ImageView").enabled(true).instance(2);
+另有enabled(), focused(), focusable(), scrollable(), selected(), checked(), clickable() ,longClickable() ,childSelector()等检索条件，顾名思义。
+UiObject
+UiObject可代表页面的任意元素，它的各种属性定位通常通过UiSelector来完成。
+比较常用的Api如clickAndWaitForNewWindow()，表示点击该元素，并且等待新新窗口的展示完毕。这一过程是Android UI Testing框架支持的，不需要额外的控制等待时间。
+UiObject允许点击该元素的具体一个部分，Api如clickTopLeft(), longClickBottomRight(),… 
+通过getText(), getContentDescription(), getVisibleBounds(),… 等api可获取UiObject的相关属性，getPackageName() 可用来明确是否打开了目标测试的App.
+setText(), clearTextField() 可以 用来设置以及清空所关联的输入框。
+waitForExists() 可以用来操纵相关等待或验证。
+UiCollection
+UiCollection一般与UiSelector连用，如它的构造函数也要求提供Uiselector: UiCollection(UiSelector selector)。
+它的api较少，主要用以从Uiselector筛选出的元素集中挑出所要的元素:getChildByDescription(), getChildByInstance(), getChildByText() ,以及统计元素集的个数getChildCount()
+
+UiScrollable
+UiObject -> UiCollection ->UiScrollable
+
+UiScrollable 用来表示可以滑动的界面元素,其继承关系如上图所示。
+其Api中,setAsVerticalList(), setAsHorizontalList() 用以设置Ui元素列表是基于横向滚动还是纵向滚动。其后可以用getMaxSearchSwipes() ,flingForward(), flingBackward() ,scrollForward(),scrollBackward() ,scrollToEnd(), scrollToBeginning() 等函数控制滑动，以及getChildByDescription(), getChildByInstance(), getChildByText() ,scrollIntoView(), scrollTextIntoView(),… 来选择是否已经转换到具有目标元素的页面。如：
+UiScrollable appViews = new UiScrollable(new UiSelector().scrollable(true));
+appViews.setAsHorizontalList();
+UiObject helperApp;
+helperApp = appViews.getChildByText(new UiSelector()
+.className(android.widget.TextView.class.getName()), " 91助手 ");  则若当前页面没有91助手APP, 测试会自动滑动页面，直到91助手App出现。
+下面介绍下UI Testing Framework构成的重要类：
+UiTestAutomationBridge
+这是整个Testing Framework的基础，此类负责连接系统了，记录最新的可链接事件(AccessibilityEvent) , 窗口内容查询Api等。可以被Android App调用，或者Java程序从shell调用。
+这里需要注意两个概念：
+1、AccessibilityEvent：所有的Ui元素可以被操纵，因为这些Event都是AccessibilityEvent。对于怎样令页面元素可以被操纵，使得相关的事件都是AccessibilityEvent，请参见Uiautomator 词条-"确认程序可以被测试" 部分。
+2、AccessibilityNodeInfo：视窗中的组件树节点，也就是uiautomtorViewer中展示的各个节点。
+Api中connect()， disconnect() 负责建立与设备的实际连接。
+executeCommandAndWaitForAccessibilityEvent（） performAccessibilityAction（） findAccessibilityNodeInfosByText(), findAccessibilityNodeInfoByViewIdInActiveWindow() 都是其中重要的Api。
+UiAutomatorBridge
+UiAutomatorBridge是UiTestAutomationBridge的子类，区别主要是在构造函数中加上了InteractionController 和QueryController 两大对象的调用。以及一些常量定义等。除了上述差异，UiAutomatorBridge还定义了executeCommandAndWaitForAccessibilityEvent() 、onAccessibilityEvent() 、waitForIdle() 、addAccessibilityEventListener() 等函数。
+InteractionController
+介绍InteractionController，需要先提InteractionProvider，它负责注入用户事件(如点击、输入等) ，并且反应事件的对应坐标。
+InteractionController则定义了几乎所有至于手机的基础操作，如runAndWaitForEvents(), clickAndWaitForEvents() ,click(), longTap(), scrollSwipe(),Swipe() ,clickAndWaitForNewWindow() ,touchUp(), touchDown(), TouchMove() ,isNaturalRotation(), setRotationRight(), setRotationLeft() ,freezeRotation() ,wakeDevice(), sleepDevice() 等。
+QueryController
+QueryController负责把UiSelector 的查找信息转化为AccessibilityNodeInfo。
+具体Api如下：findNodePatternRecursive(), translatePatternSelector(), translateReqularSelector(), translateCompoundSelector(), getRootNode() ,findAccessibilityNodeInfo()。
+UiWatcher
+UiWatcher只在UiSelector无法找到匹配的结果时被调用，意在重试、等待页面更新 (如弹出对话框)等。其中只有一个主要函数：checkForCondition() 。
+它的相关函数均在UiDevice中，如：UiDevice.registerWatcher() ,UiDevice. resetWatcherTriggers() ,UiDevice.runWatchers() ,UiDevice.removeWatcher()
